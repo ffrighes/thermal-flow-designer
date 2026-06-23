@@ -14,13 +14,132 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      edges: {
+        Row: {
+          created_at: string
+          id: string
+          material: string
+          parametros: Json
+          project_id: string
+          source_node: string
+          target_node: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          material?: string
+          parametros?: Json
+          project_id: string
+          source_node: string
+          target_node: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          material?: string
+          parametros?: Json
+          project_id?: string
+          source_node?: string
+          target_node?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edges_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "edges_source_node_fkey"
+            columns: ["source_node"]
+            isOneToOne: false
+            referencedRelation: "nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "edges_target_node_fkey"
+            columns: ["target_node"]
+            isOneToOne: false
+            referencedRelation: "nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nodes: {
+        Row: {
+          created_at: string
+          id: string
+          parametros: Json
+          pos_x: number
+          pos_y: number
+          project_id: string
+          tag: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          parametros?: Json
+          pos_x?: number
+          pos_y?: number
+          project_id: string
+          tag: string
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          parametros?: Json
+          pos_x?: number
+          pos_y?: number
+          project_id?: string
+          tag?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nodes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_project_owner: { Args: { _project_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
