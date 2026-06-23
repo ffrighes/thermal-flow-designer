@@ -122,7 +122,7 @@ export const saveProject = createServerFn({ method: "POST" })
           tag: n.tag,
           pos_x: n.pos_x,
           pos_y: n.pos_y,
-          parametros: n.parametros,
+          parametros: n.parametros as never,
         })),
       );
       if (nErr) throw new Error(nErr.message);
@@ -135,7 +135,7 @@ export const saveProject = createServerFn({ method: "POST" })
           source_node: e.source_node,
           target_node: e.target_node,
           material: e.material,
-          parametros: e.parametros,
+          parametros: e.parametros as never,
         })),
       );
       if (eErr) throw new Error(eErr.message);
