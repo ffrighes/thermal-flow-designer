@@ -147,7 +147,7 @@ function EditorInner() {
     (c: Connection) =>
       setEdges((eds) =>
         addEdge(
-          { ...c, id: crypto.randomUUID(), data: { material: "aco_carbono" } },
+          { ...c, id: crypto.randomUUID(), type: "step", data: { material: "aco_carbono" } },
           eds,
         ),
       ),
