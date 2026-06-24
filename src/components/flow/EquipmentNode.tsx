@@ -1,21 +1,17 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { EQUIPMENT, type EquipmentType } from "@/lib/thermal/equipment";
-import { calculate } from "@/lib/thermal/formulas";
 import { cn } from "@/lib/utils";
 
 export interface EquipmentNodeData {
   tipo: EquipmentType;
   tag: string;
-  parametros: Record<string, unknown>;
+  parametros?: Record<string, unknown>;
 }
 
 export function EquipmentNode({ data, selected }: NodeProps) {
   const d = data as unknown as EquipmentNodeData;
   const def = EQUIPMENT[d.tipo];
   const Icon = def.icon;
-  const calc = calculate(d.tipo, d.parametros ?? {});
-  const ok = calc.missing.length === 0 && calc.rows.length > 0;
 
   return (
     <div
@@ -32,25 +28,7 @@ export function EquipmentNode({ data, selected }: NodeProps) {
         </span>
         <span className="ml-auto font-mono text-sm font-semibold">{d.tag}</span>
       </div>
-      <div className="px-3 py-2">
-        <div className="text-sm">{def.label}</div>
-        <div
-          className={cn(
-            "mt-2 flex items-center gap-1.5 text-xs",
-            ok ? "text-success" : "text-warning",
-          )}
-        >
-          {ok ? (
-            <>
-              <CheckCircle2 className="h-3.5 w-3.5" /> OK
-            </>
-          ) : (
-            <>
-              <AlertTriangle className="h-3.5 w-3.5" /> Dados Insuficientes
-            </>
-          )}
-        </div>
-      </div>
+      <div className="px-3 py-2 text-sm">{def.label}</div>
       <Handle type="source" position={Position.Right} />
     </div>
   );
