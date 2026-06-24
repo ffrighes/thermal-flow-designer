@@ -24,18 +24,10 @@ import { EQUIPMENT, type EquipmentType } from "@/lib/thermal/equipment";
 import { EquipmentNode } from "@/components/flow/EquipmentNode";
 import { Palette } from "@/components/flow/Palette";
 import { Inspector } from "@/components/flow/Inspector";
-import { BalancePanel } from "@/components/balance/BalancePanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  ChevronLeft,
-  LogOut,
-  Save,
-  Snowflake,
-  PanelBottomOpen,
-  PanelBottomClose,
-} from "lucide-react";
+import { ChevronLeft, LogOut, Save, Snowflake } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/projects/$id")({
@@ -68,7 +60,7 @@ function EditorInner() {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [name, setName] = useState("");
   const [savedAt, setSavedAt] = useState<string | null>(null);
-  const [showBalance, setShowBalance] = useState(true);
+  
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
   const initialized = useRef(false);
@@ -235,17 +227,6 @@ function EditorInner() {
               : "Não salvo"}
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => setShowBalance((s) => !s)}>
-            {showBalance ? (
-              <>
-                <PanelBottomClose className="mr-1 h-4 w-4" /> Ocultar balanço
-              </>
-            ) : (
-              <>
-                <PanelBottomOpen className="mr-1 h-4 w-4" /> Mostrar balanço
-              </>
-            )}
-          </Button>
           <Button size="sm" onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
             <Save className="mr-1 h-4 w-4" />
             Salvar
@@ -307,11 +288,6 @@ function EditorInner() {
               <MiniMap pannable zoomable />
             </ReactFlow>
           </div>
-          {showBalance && (
-            <div className="h-[40vh] border-t border-border bg-card">
-              <BalancePanel nodes={nodes} />
-            </div>
-          )}
         </div>
         {/* Inspector */}
         <aside className="w-80 border-l border-border bg-sidebar">
