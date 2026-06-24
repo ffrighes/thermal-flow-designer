@@ -82,7 +82,11 @@ function EditorInner() {
       data.edges.map((e) => ({
         id: e.id,
         source: e.source_node,
+      data.edges.map((e) => ({
+        id: e.id,
+        source: e.source_node,
         target: e.target_node,
+        type: "step",
         data: { material: e.material, ...((e.parametros as object) ?? {}) },
         label: (e.parametros as Record<string, unknown>)?.tag as string | undefined,
       })),
