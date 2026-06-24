@@ -24,18 +24,10 @@ import { EQUIPMENT, type EquipmentType } from "@/lib/thermal/equipment";
 import { EquipmentNode } from "@/components/flow/EquipmentNode";
 import { Palette } from "@/components/flow/Palette";
 import { Inspector } from "@/components/flow/Inspector";
-import { BalancePanel } from "@/components/balance/BalancePanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  ChevronLeft,
-  LogOut,
-  Save,
-  Snowflake,
-  PanelBottomOpen,
-  PanelBottomClose,
-} from "lucide-react";
+import { ChevronLeft, LogOut, Save, Snowflake } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/projects/$id")({
