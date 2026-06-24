@@ -197,6 +197,16 @@ function EditorInner() {
     );
   }, []);
 
+  const deleteNode = useCallback((nodeId: string) => {
+    setNodes((nds) => nds.filter((n) => n.id !== nodeId));
+    setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
+    setSelectedNode((cur) => (cur && cur.id === nodeId ? null : cur));
+  }, []);
+  const deleteEdge = useCallback((edgeId: string) => {
+    setEdges((eds) => eds.filter((e) => e.id !== edgeId));
+    setSelectedEdge((cur) => (cur && cur.id === edgeId ? null : cur));
+  }, []);
+
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center text-muted-foreground">
@@ -282,6 +292,15 @@ function EditorInner() {
               fitView
               snapToGrid
               snapGrid={[16, 16]}
+              deleteKeyCode={["Delete", "Backspace"]}
+              onNodesDelete={(deleted) => {
+                const ids = new Set(deleted.map((n) => n.id));
+                setSelectedNode((cur) => (cur && ids.has(cur.id) ? null : cur));
+              }}
+              onEdgesDelete={(deleted) => {
+                const ids = new Set(deleted.map((e) => e.id));
+                setSelectedEdge((cur) => (cur && ids.has(cur.id) ? null : cur));
+              }}
             >
               <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
               <Controls />
@@ -296,6 +315,8 @@ function EditorInner() {
             selectedEdge={selectedEdge}
             onUpdateNode={updateNode}
             onUpdateEdge={updateEdge}
+            onDeleteNode={deleteNode}
+            onDeleteEdge={deleteEdge}
           />
         </aside>
       </div>
