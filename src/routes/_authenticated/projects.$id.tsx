@@ -288,7 +288,6 @@ function EditorInner() {
               <MiniMap pannable zoomable />
             </ReactFlow>
           </div>
-          </div>
         </div>
         {/* Inspector */}
         <aside className="w-80 border-l border-border bg-sidebar">
