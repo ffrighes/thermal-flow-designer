@@ -77,12 +77,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "FrioFlow — Balanço Térmico de Refrigeração Industrial" },
+      { title: "Thermal Flow Designer" },
       {
         name: "description",
         content:
           "Monte diagramas de sistemas de refrigeração industrial e calcule o balanço térmico com fórmulas e unidades de engenharia.",
       },
+      { property: "og:title", content: "Thermal Flow Designer" },
+      { name: "twitter:title", content: "Thermal Flow Designer" },
+      { name: "description", content: "Crie diagramas de balanço térmico para sistemas de refrigeração industrial arrastando e conectando equipamentos." },
+      { property: "og:description", content: "Crie diagramas de balanço térmico para sistemas de refrigeração industrial arrastando e conectando equipamentos." },
+      { name: "twitter:description", content: "Crie diagramas de balanço térmico para sistemas de refrigeração industrial arrastando e conectando equipamentos." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/79d4eac9-baff-4230-b998-e7a5616c2e22/id-preview-2d9700e1--ff07841f-933d-4450-95fd-edddf8c1941f.lovable.app-1782239952554.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/79d4eac9-baff-4230-b998-e7a5616c2e22/id-preview-2d9700e1--ff07841f-933d-4450-95fd-edddf8c1941f.lovable.app-1782239952554.png" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:type", content: "website" },
     ],
     links: [{ rel: "stylesheet", href: appCss }],
   }),
