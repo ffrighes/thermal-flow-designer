@@ -282,6 +282,15 @@ function EditorInner() {
               fitView
               snapToGrid
               snapGrid={[16, 16]}
+              deleteKeyCode={["Delete", "Backspace"]}
+              onNodesDelete={(deleted) => {
+                const ids = new Set(deleted.map((n) => n.id));
+                setSelectedNode((cur) => (cur && ids.has(cur.id) ? null : cur));
+              }}
+              onEdgesDelete={(deleted) => {
+                const ids = new Set(deleted.map((e) => e.id));
+                setSelectedEdge((cur) => (cur && ids.has(cur.id) ? null : cur));
+              }}
             >
               <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
               <Controls />
