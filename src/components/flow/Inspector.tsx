@@ -2,7 +2,7 @@ import type { Edge, Node } from "@xyflow/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trash2 } from "lucide-react";
+import { Trash2, Split } from "lucide-react";
 import { EQUIPMENT, type EquipmentType } from "@/lib/thermal/equipment";
 
 interface Props {
@@ -12,6 +12,7 @@ interface Props {
   onUpdateEdge: (id: string, patch: Partial<Edge["data"]>) => void;
   onDeleteNode: (id: string) => void;
   onDeleteEdge: (id: string) => void;
+  onSplitEdge: (id: string) => void;
 }
 
 export function Inspector({
@@ -21,6 +22,7 @@ export function Inspector({
   onUpdateEdge,
   onDeleteNode,
   onDeleteEdge,
+  onSplitEdge,
 }: Props) {
   if (!selectedNode && !selectedEdge) {
     return (
@@ -31,12 +33,22 @@ export function Inspector({
           ou <kbd className="rounded border border-border bg-muted px-1">Backspace</kbd> para
           remover itens selecionados.
         </p>
+        <p className="mt-2 text-xs">
+          Para ramificar uma tubulação, segure{" "}
+          <kbd className="rounded border border-border bg-muted px-1">Alt</kbd> e clique sobre ela
+          no ponto desejado.
+        </p>
       </div>
     );
   }
   if (selectedEdge)
     return (
-      <EdgeInspector edge={selectedEdge} onUpdate={onUpdateEdge} onDelete={onDeleteEdge} />
+      <EdgeInspector
+        edge={selectedEdge}
+        onUpdate={onUpdateEdge}
+        onDelete={onDeleteEdge}
+        onSplit={onSplitEdge}
+      />
     );
   return (
     <NodeInspector node={selectedNode!} onUpdate={onUpdateNode} onDelete={onDeleteNode} />
@@ -52,9 +64,31 @@ function NodeInspector({
   onUpdate: (id: string, patch: Partial<Node["data"]>) => void;
   onDelete: (id: string) => void;
 }) {
-  const data = node.data as { tipo: EquipmentType; tag: string; parametros?: Record<string, unknown> };
-  const def = EQUIPMENT[data.tipo];
+  const data = node.data as { tipo: EquipmentType | "junction"; tag: string; parametros?: Record<string, unknown> };
 
+  if (data.tipo === "junction") {
+    return (
+      <div className="flex h-full flex-col p-4">
+        <div className="text-xs uppercase tracking-wide text-muted-foreground">Junção</div>
+        <div className="mb-3 text-sm font-medium">Ponto de ramificação</div>
+        <p className="text-xs text-muted-foreground">
+          Arraste para reposicionar (com snap à grade). Conecte novas tubulações arrastando dos
+          equipamentos.
+        </p>
+        <Button
+          variant="destructive"
+          size="sm"
+          className="mt-6"
+          onClick={() => onDelete(node.id)}
+        >
+          <Trash2 className="mr-1 h-4 w-4" />
+          Remover junção
+        </Button>
+      </div>
+    );
+  }
+
+  const def = EQUIPMENT[data.tipo];
   return (
     <div className="flex h-full flex-col p-4">
       <div className="text-xs uppercase tracking-wide text-muted-foreground">{def.shortLabel}</div>
@@ -85,10 +119,12 @@ function EdgeInspector({
   edge,
   onUpdate,
   onDelete,
+  onSplit,
 }: {
   edge: Edge;
   onUpdate: (id: string, patch: Partial<Edge["data"]>) => void;
   onDelete: (id: string) => void;
+  onSplit: (id: string) => void;
 }) {
   const data = (edge.data ?? {}) as Record<string, unknown>;
   return (
@@ -102,9 +138,18 @@ function EdgeInspector({
         placeholder="ex.: L-01"
       />
       <Button
+        variant="outline"
+        size="sm"
+        className="mt-4"
+        onClick={() => onSplit(edge.id)}
+      >
+        <Split className="mr-1 h-4 w-4" />
+        Ramificar aqui
+      </Button>
+      <Button
         variant="destructive"
         size="sm"
-        className="mt-6"
+        className="mt-2"
         onClick={() => onDelete(edge.id)}
       >
         <Trash2 className="mr-1 h-4 w-4" />

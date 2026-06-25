@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadProject, saveProject } from "@/lib/projects.functions";
 import { EQUIPMENT, type EquipmentType } from "@/lib/thermal/equipment";
 import { EquipmentNode } from "@/components/flow/EquipmentNode";
+import { JunctionNode } from "@/components/flow/JunctionNode";
 import { Palette } from "@/components/flow/Palette";
 import { Inspector } from "@/components/flow/Inspector";
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,10 @@ export const Route = createFileRoute("/_authenticated/projects/$id")({
   component: EditorPage,
 });
 
-const nodeTypes = { equipment: EquipmentNode };
+const nodeTypes = { equipment: EquipmentNode, junction: JunctionNode };
+
+const SNAP = 16;
+const snap = (v: number) => Math.round(v / SNAP) * SNAP;
 
 function EditorPage() {
   return (
@@ -71,12 +75,22 @@ function EditorInner() {
     initialized.current = true;
     setName(data.project.nome);
     setNodes(
-      data.nodes.map((n) => ({
-        id: n.id,
-        type: "equipment",
-        position: { x: n.pos_x, y: n.pos_y },
-        data: { tipo: n.tipo as EquipmentType, tag: n.tag, parametros: n.parametros ?? {} },
-      })),
+      data.nodes.map((n) => {
+        if (n.tipo === "junction") {
+          return {
+            id: n.id,
+            type: "junction",
+            position: { x: n.pos_x, y: n.pos_y },
+            data: { tipo: "junction" as const, tag: "", parametros: {} },
+          } as Node;
+        }
+        return {
+          id: n.id,
+          type: "equipment",
+          position: { x: n.pos_x, y: n.pos_y },
+          data: { tipo: n.tipo as EquipmentType, tag: n.tag, parametros: n.parametros ?? {} },
+        } as Node;
+      }),
     );
     setEdges(
       data.edges.map((e) => ({
@@ -198,15 +212,127 @@ function EditorInner() {
     );
   }, []);
 
-  const deleteNode = useCallback((nodeId: string) => {
-    setNodes((nds) => nds.filter((n) => n.id !== nodeId));
-    setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
+  // Helper: substitui um nó por uma junção na mesma posição, preservando as arestas
+  const replaceNodeWithJunction = useCallback((nodeId: string) => {
+    let junctionId: string | null = null;
+    setNodes((nds) => {
+      const target = nds.find((n) => n.id === nodeId);
+      if (!target) return nds.filter((n) => n.id !== nodeId);
+      // Centro aproximado: para equipamentos, ~90x30 do canto sup. esq.
+      const isEquip = target.type === "equipment";
+      const cx = snap(target.position.x + (isEquip ? 90 : 0));
+      const cy = snap(target.position.y + (isEquip ? 30 : 0));
+      junctionId = crypto.randomUUID();
+      const junction: Node = {
+        id: junctionId,
+        type: "junction",
+        position: { x: cx, y: cy },
+        data: { tipo: "junction", tag: "", parametros: {} },
+      };
+      return [...nds.filter((n) => n.id !== nodeId), junction];
+    });
+    setEdges((eds) =>
+      eds
+        .map((e) => {
+          if (e.source !== nodeId && e.target !== nodeId) return e;
+          if (!junctionId) return e;
+          const next: Edge = {
+            ...e,
+            source: e.source === nodeId ? junctionId : e.source,
+            target: e.target === nodeId ? junctionId : e.target,
+            sourceHandle: e.source === nodeId ? "s" : e.sourceHandle,
+            targetHandle: e.target === nodeId ? "t" : e.targetHandle,
+          };
+          // Evita self-loop caso ambas as pontas viessem do mesmo nó
+          if (next.source === next.target) return null;
+          return next;
+        })
+        .filter((e): e is Edge => e !== null),
+    );
     setSelectedNode((cur) => (cur && cur.id === nodeId ? null : cur));
   }, []);
+
+  const deleteNode = useCallback(
+    (nodeId: string) => {
+      // Se for junção, apenas remove (e remove arestas órfãs, ou funde se houver exatamente 2)
+      setNodes((nds) => {
+        const target = nds.find((n) => n.id === nodeId);
+        if (target?.type === "junction") {
+          setEdges((eds) => {
+            const incident = eds.filter((e) => e.source === nodeId || e.target === nodeId);
+            const others = eds.filter((e) => e.source !== nodeId && e.target !== nodeId);
+            if (incident.length === 2) {
+              // Fundir: pega a "entrada" e a "saída" e cria uma nova aresta direta
+              const a = incident[0];
+              const b = incident[1];
+              const otherOfA = a.source === nodeId ? a.target : a.source;
+              const otherOfB = b.source === nodeId ? b.target : b.source;
+              if (otherOfA !== otherOfB) {
+                others.push({
+                  ...a,
+                  id: crypto.randomUUID(),
+                  source: otherOfA,
+                  target: otherOfB,
+                  sourceHandle: undefined,
+                  targetHandle: undefined,
+                });
+              }
+            }
+            return others;
+          });
+          setSelectedNode((cur) => (cur && cur.id === nodeId ? null : cur));
+          return nds.filter((n) => n.id !== nodeId);
+        }
+        return nds;
+      });
+      // Para equipamentos, preserva as linhas convertendo em junção
+      const isEquip = nodes.find((n) => n.id === nodeId)?.type === "equipment";
+      if (isEquip) replaceNodeWithJunction(nodeId);
+    },
+    [nodes, replaceNodeWithJunction],
+  );
+
   const deleteEdge = useCallback((edgeId: string) => {
     setEdges((eds) => eds.filter((e) => e.id !== edgeId));
     setSelectedEdge((cur) => (cur && cur.id === edgeId ? null : cur));
   }, []);
+
+  // Cria junção sobre uma aresta (Alt+clique) e a divide em duas
+  const splitEdgeAt = useCallback(
+    (edgeId: string, flowX: number, flowY: number) => {
+      const x = snap(flowX);
+      const y = snap(flowY);
+      const junctionId = crypto.randomUUID();
+      setNodes((nds) => [
+        ...nds,
+        {
+          id: junctionId,
+          type: "junction",
+          position: { x, y },
+          data: { tipo: "junction", tag: "", parametros: {} },
+        },
+      ]);
+      setEdges((eds) => {
+        const orig = eds.find((e) => e.id === edgeId);
+        if (!orig) return eds;
+        const a: Edge = {
+          ...orig,
+          id: crypto.randomUUID(),
+          target: junctionId,
+          targetHandle: "t",
+        };
+        const b: Edge = {
+          ...orig,
+          id: crypto.randomUUID(),
+          source: junctionId,
+          sourceHandle: "s",
+        };
+        return [...eds.filter((e) => e.id !== edgeId), a, b];
+      });
+      setSelectedEdge(null);
+    },
+    [],
+  );
 
   if (isLoading) {
     return (
@@ -282,7 +408,12 @@ function EditorInner() {
                 setSelectedNode(n);
                 setSelectedEdge(null);
               }}
-              onEdgeClick={(_, e) => {
+              onEdgeClick={(evt, e) => {
+                if (evt.altKey) {
+                  const pos = screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
+                  splitEdgeAt(e.id, pos.x, pos.y);
+                  return;
+                }
                 setSelectedEdge(e);
                 setSelectedNode(null);
               }}
@@ -294,13 +425,14 @@ function EditorInner() {
               snapToGrid
               snapGrid={[16, 16]}
               deleteKeyCode={["Delete", "Backspace"]}
-              onNodesDelete={(deleted) => {
-                const ids = new Set(deleted.map((n) => n.id));
-                setSelectedNode((cur) => (cur && ids.has(cur.id) ? null : cur));
-              }}
-              onEdgesDelete={(deleted) => {
-                const ids = new Set(deleted.map((e) => e.id));
-                setSelectedEdge((cur) => (cur && ids.has(cur.id) ? null : cur));
+              onBeforeDelete={async ({ nodes: ns, edges: es }) => {
+                // Trate cada nó com nossa lógica (preserva linhas em equipamentos)
+                for (const n of ns) deleteNode(n.id);
+                for (const e of es) {
+                  if (ns.some((n) => n.id === e.source || n.id === e.target)) continue;
+                  deleteEdge(e.id);
+                }
+                return false;
               }}
             >
               <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
@@ -318,6 +450,14 @@ function EditorInner() {
             onUpdateEdge={updateEdge}
             onDeleteNode={deleteNode}
             onDeleteEdge={deleteEdge}
+            onSplitEdge={(edgeId) => {
+              const e = edges.find((x) => x.id === edgeId);
+              if (!e) return;
+              const a = nodes.find((n) => n.id === e.source);
+              const b = nodes.find((n) => n.id === e.target);
+              if (!a || !b) return;
+              splitEdgeAt(edgeId, (a.position.x + b.position.x) / 2, (a.position.y + b.position.y) / 2);
+            }}
           />
         </aside>
       </div>
