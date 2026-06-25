@@ -450,6 +450,14 @@ function EditorInner() {
             onUpdateEdge={updateEdge}
             onDeleteNode={deleteNode}
             onDeleteEdge={deleteEdge}
+            onSplitEdge={(edgeId) => {
+              const e = edges.find((x) => x.id === edgeId);
+              if (!e) return;
+              const a = nodes.find((n) => n.id === e.source);
+              const b = nodes.find((n) => n.id === e.target);
+              if (!a || !b) return;
+              splitEdgeAt(edgeId, (a.position.x + b.position.x) / 2, (a.position.y + b.position.y) / 2);
+            }}
           />
         </aside>
       </div>
