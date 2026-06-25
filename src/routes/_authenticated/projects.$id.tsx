@@ -35,7 +35,10 @@ export const Route = createFileRoute("/_authenticated/projects/$id")({
   component: EditorPage,
 });
 
-const nodeTypes = { equipment: EquipmentNode };
+const nodeTypes = { equipment: EquipmentNode, junction: JunctionNode };
+
+const SNAP = 16;
+const snap = (v: number) => Math.round(v / SNAP) * SNAP;
 
 function EditorPage() {
   return (
