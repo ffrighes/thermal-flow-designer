@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadProject, saveProject } from "@/lib/projects.functions";
 import { EQUIPMENT, type EquipmentType } from "@/lib/thermal/equipment";
 import { EquipmentNode } from "@/components/flow/EquipmentNode";
+import { JunctionNode } from "@/components/flow/JunctionNode";
 import { Palette } from "@/components/flow/Palette";
 import { Inspector } from "@/components/flow/Inspector";
 import { Button } from "@/components/ui/button";
