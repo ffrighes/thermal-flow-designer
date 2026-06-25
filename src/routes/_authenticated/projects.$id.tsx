@@ -75,12 +75,22 @@ function EditorInner() {
     initialized.current = true;
     setName(data.project.nome);
     setNodes(
-      data.nodes.map((n) => ({
-        id: n.id,
-        type: "equipment",
-        position: { x: n.pos_x, y: n.pos_y },
-        data: { tipo: n.tipo as EquipmentType, tag: n.tag, parametros: n.parametros ?? {} },
-      })),
+      data.nodes.map((n) => {
+        if (n.tipo === "junction") {
+          return {
+            id: n.id,
+            type: "junction",
+            position: { x: n.pos_x, y: n.pos_y },
+            data: { tipo: "junction" as const, tag: "", parametros: {} },
+          } as Node;
+        }
+        return {
+          id: n.id,
+          type: "equipment",
+          position: { x: n.pos_x, y: n.pos_y },
+          data: { tipo: n.tipo as EquipmentType, tag: n.tag, parametros: n.parametros ?? {} },
+        } as Node;
+      }),
     );
     setEdges(
       data.edges.map((e) => ({
