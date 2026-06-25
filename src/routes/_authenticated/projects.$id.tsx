@@ -408,7 +408,12 @@ function EditorInner() {
                 setSelectedNode(n);
                 setSelectedEdge(null);
               }}
-              onEdgeClick={(_, e) => {
+              onEdgeClick={(evt, e) => {
+                if (evt.altKey) {
+                  const pos = screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
+                  splitEdgeAt(e.id, pos.x, pos.y);
+                  return;
+                }
                 setSelectedEdge(e);
                 setSelectedNode(null);
               }}
@@ -420,13 +425,14 @@ function EditorInner() {
               snapToGrid
               snapGrid={[16, 16]}
               deleteKeyCode={["Delete", "Backspace"]}
-              onNodesDelete={(deleted) => {
-                const ids = new Set(deleted.map((n) => n.id));
-                setSelectedNode((cur) => (cur && ids.has(cur.id) ? null : cur));
-              }}
-              onEdgesDelete={(deleted) => {
-                const ids = new Set(deleted.map((e) => e.id));
-                setSelectedEdge((cur) => (cur && ids.has(cur.id) ? null : cur));
+              onBeforeDelete={async ({ nodes: ns, edges: es }) => {
+                // Trate cada nó com nossa lógica (preserva linhas em equipamentos)
+                for (const n of ns) deleteNode(n.id);
+                for (const e of es) {
+                  if (ns.some((n) => n.id === e.source || n.id === e.target)) continue;
+                  deleteEdge(e.id);
+                }
+                return false;
               }}
             >
               <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
