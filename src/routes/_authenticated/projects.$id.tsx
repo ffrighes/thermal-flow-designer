@@ -212,15 +212,127 @@ function EditorInner() {
     );
   }, []);
 
-  const deleteNode = useCallback((nodeId: string) => {
-    setNodes((nds) => nds.filter((n) => n.id !== nodeId));
-    setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
+  // Helper: substitui um nó por uma junção na mesma posição, preservando as arestas
+  const replaceNodeWithJunction = useCallback((nodeId: string) => {
+    let junctionId: string | null = null;
+    setNodes((nds) => {
+      const target = nds.find((n) => n.id === nodeId);
+      if (!target) return nds.filter((n) => n.id !== nodeId);
+      // Centro aproximado: para equipamentos, ~90x30 do canto sup. esq.
+      const isEquip = target.type === "equipment";
+      const cx = snap(target.position.x + (isEquip ? 90 : 0));
+      const cy = snap(target.position.y + (isEquip ? 30 : 0));
+      junctionId = crypto.randomUUID();
+      const junction: Node = {
+        id: junctionId,
+        type: "junction",
+        position: { x: cx, y: cy },
+        data: { tipo: "junction", tag: "", parametros: {} },
+      };
+      return [...nds.filter((n) => n.id !== nodeId), junction];
+    });
+    setEdges((eds) =>
+      eds
+        .map((e) => {
+          if (e.source !== nodeId && e.target !== nodeId) return e;
+          if (!junctionId) return e;
+          const next: Edge = {
+            ...e,
+            source: e.source === nodeId ? junctionId : e.source,
+            target: e.target === nodeId ? junctionId : e.target,
+            sourceHandle: e.source === nodeId ? "s" : e.sourceHandle,
+            targetHandle: e.target === nodeId ? "t" : e.targetHandle,
+          };
+          // Evita self-loop caso ambas as pontas viessem do mesmo nó
+          if (next.source === next.target) return null;
+          return next;
+        })
+        .filter((e): e is Edge => e !== null),
+    );
     setSelectedNode((cur) => (cur && cur.id === nodeId ? null : cur));
   }, []);
+
+  const deleteNode = useCallback(
+    (nodeId: string) => {
+      // Se for junção, apenas remove (e remove arestas órfãs, ou funde se houver exatamente 2)
+      setNodes((nds) => {
+        const target = nds.find((n) => n.id === nodeId);
+        if (target?.type === "junction") {
+          setEdges((eds) => {
+            const incident = eds.filter((e) => e.source === nodeId || e.target === nodeId);
+            const others = eds.filter((e) => e.source !== nodeId && e.target !== nodeId);
+            if (incident.length === 2) {
+              // Fundir: pega a "entrada" e a "saída" e cria uma nova aresta direta
+              const a = incident[0];
+              const b = incident[1];
+              const otherOfA = a.source === nodeId ? a.target : a.source;
+              const otherOfB = b.source === nodeId ? b.target : b.source;
+              if (otherOfA !== otherOfB) {
+                others.push({
+                  ...a,
+                  id: crypto.randomUUID(),
+                  source: otherOfA,
+                  target: otherOfB,
+                  sourceHandle: undefined,
+                  targetHandle: undefined,
+                });
+              }
+            }
+            return others;
+          });
+          setSelectedNode((cur) => (cur && cur.id === nodeId ? null : cur));
+          return nds.filter((n) => n.id !== nodeId);
+        }
+        return nds;
+      });
+      // Para equipamentos, preserva as linhas convertendo em junção
+      const isEquip = nodes.find((n) => n.id === nodeId)?.type === "equipment";
+      if (isEquip) replaceNodeWithJunction(nodeId);
+    },
+    [nodes, replaceNodeWithJunction],
+  );
+
   const deleteEdge = useCallback((edgeId: string) => {
     setEdges((eds) => eds.filter((e) => e.id !== edgeId));
     setSelectedEdge((cur) => (cur && cur.id === edgeId ? null : cur));
   }, []);
+
+  // Cria junção sobre uma aresta (Alt+clique) e a divide em duas
+  const splitEdgeAt = useCallback(
+    (edgeId: string, flowX: number, flowY: number) => {
+      const x = snap(flowX);
+      const y = snap(flowY);
+      const junctionId = crypto.randomUUID();
+      setNodes((nds) => [
+        ...nds,
+        {
+          id: junctionId,
+          type: "junction",
+          position: { x, y },
+          data: { tipo: "junction", tag: "", parametros: {} },
+        },
+      ]);
+      setEdges((eds) => {
+        const orig = eds.find((e) => e.id === edgeId);
+        if (!orig) return eds;
+        const a: Edge = {
+          ...orig,
+          id: crypto.randomUUID(),
+          target: junctionId,
+          targetHandle: "t",
+        };
+        const b: Edge = {
+          ...orig,
+          id: crypto.randomUUID(),
+          source: junctionId,
+          sourceHandle: "s",
+        };
+        return [...eds.filter((e) => e.id !== edgeId), a, b];
+      });
+      setSelectedEdge(null);
+    },
+    [],
+  );
 
   if (isLoading) {
     return (
