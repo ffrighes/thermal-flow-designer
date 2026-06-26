@@ -34,10 +34,13 @@ export function Inspector({
           remover itens selecionados.
         </p>
         <p className="mt-2 text-xs">
-          Para ramificar uma tubulação, segure{" "}
-          <kbd className="rounded border border-border bg-muted px-1">Alt</kbd> e clique sobre ela
-          no ponto desejado.
+          Use <strong>Nova linha</strong> para criar uma tubulação independente, ou{" "}
+          <strong>Ponto de derivação</strong> (ou{" "}
+          <kbd className="rounded border border-border bg-muted px-1">Alt</kbd>+clique) para
+          ramificar uma linha existente. Arraste as junções para reposicionar trechos — elas
+          fazem snap à grade.
         </p>
+
       </div>
     );
   }
