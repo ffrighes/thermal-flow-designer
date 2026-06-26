@@ -68,8 +68,40 @@ function EditorInner() {
   
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
+  const [branchMode, setBranchMode] = useState(false);
   const initialized = useRef(false);
   const { screenToFlowPosition } = useReactFlow();
+
+  const makeJunction = useCallback((x: number, y: number): Node => ({
+    id: crypto.randomUUID(),
+    type: "junction",
+    position: { x: snap(x), y: snap(y) },
+    data: { tipo: "junction", tag: "", parametros: {} },
+  }), []);
+
+  const addNewLine = useCallback(() => {
+    // Cria duas junções no centro do viewport com uma aresta entre elas
+    const center = screenToFlowPosition({
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+    });
+    const a = makeJunction(center.x - 80, center.y);
+    const b = makeJunction(center.x + 80, center.y);
+    setNodes((nds) => [...nds, a, b]);
+    setEdges((eds) => [
+      ...eds,
+      {
+        id: crypto.randomUUID(),
+        source: a.id,
+        target: b.id,
+        sourceHandle: "s",
+        targetHandle: "t",
+        type: "step",
+        data: { material: "aco_carbono" },
+      },
+    ]);
+  }, [makeJunction, screenToFlowPosition]);
+
 
   useEffect(() => {
     if (!data || initialized.current) return;
