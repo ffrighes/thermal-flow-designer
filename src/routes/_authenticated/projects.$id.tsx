@@ -28,8 +28,9 @@ import { Inspector } from "@/components/flow/Inspector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, LogOut, Save, Snowflake } from "lucide-react";
+import { ChevronLeft, LogOut, Save, Snowflake, Spline, GitBranch } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/projects/$id")({
   component: EditorPage,
