@@ -28,8 +28,9 @@ import { Inspector } from "@/components/flow/Inspector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, LogOut, Save, Snowflake } from "lucide-react";
+import { ChevronLeft, LogOut, Save, Snowflake, Spline, GitBranch } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/projects/$id")({
   component: EditorPage,
@@ -67,8 +68,40 @@ function EditorInner() {
   
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
+  const [branchMode, setBranchMode] = useState(false);
   const initialized = useRef(false);
   const { screenToFlowPosition } = useReactFlow();
+
+  const makeJunction = useCallback((x: number, y: number): Node => ({
+    id: crypto.randomUUID(),
+    type: "junction",
+    position: { x: snap(x), y: snap(y) },
+    data: { tipo: "junction", tag: "", parametros: {} },
+  }), []);
+
+  const addNewLine = useCallback(() => {
+    // Cria duas junções no centro do viewport com uma aresta entre elas
+    const center = screenToFlowPosition({
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+    });
+    const a = makeJunction(center.x - 80, center.y);
+    const b = makeJunction(center.x + 80, center.y);
+    setNodes((nds) => [...nds, a, b]);
+    setEdges((eds) => [
+      ...eds,
+      {
+        id: crypto.randomUUID(),
+        source: a.id,
+        target: b.id,
+        sourceHandle: "s",
+        targetHandle: "t",
+        type: "step",
+        data: { material: "aco_carbono" },
+      },
+    ]);
+  }, [makeJunction, screenToFlowPosition]);
+
 
   useEffect(() => {
     if (!data || initialized.current) return;
@@ -409,9 +442,10 @@ function EditorInner() {
                 setSelectedEdge(null);
               }}
               onEdgeClick={(evt, e) => {
-                if (evt.altKey) {
+                if (evt.altKey || branchMode) {
                   const pos = screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
                   splitEdgeAt(e.id, pos.x, pos.y);
+                  setBranchMode(false);
                   return;
                 }
                 setSelectedEdge(e);
@@ -420,13 +454,13 @@ function EditorInner() {
               onPaneClick={() => {
                 setSelectedNode(null);
                 setSelectedEdge(null);
+                if (branchMode) setBranchMode(false);
               }}
               fitView
               snapToGrid
               snapGrid={[16, 16]}
               deleteKeyCode={["Delete", "Backspace"]}
               onBeforeDelete={async ({ nodes: ns, edges: es }) => {
-                // Trate cada nó com nossa lógica (preserva linhas em equipamentos)
                 for (const n of ns) deleteNode(n.id);
                 for (const e of es) {
                   if (ns.some((n) => n.id === e.source || n.id === e.target)) continue;
@@ -434,13 +468,38 @@ function EditorInner() {
                 }
                 return false;
               }}
+              className={cn(branchMode && "cursor-crosshair")}
             >
               <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
               <Controls />
               <MiniMap pannable zoomable />
             </ReactFlow>
+
+            {/* Toolbar flutuante */}
+            <div className="pointer-events-none absolute left-3 top-3 z-10 flex gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                className="pointer-events-auto shadow-md"
+                onClick={addNewLine}
+              >
+                <Spline className="mr-1 h-4 w-4" />
+                Nova linha
+              </Button>
+              <Button
+                size="sm"
+                variant={branchMode ? "default" : "secondary"}
+                className="pointer-events-auto shadow-md"
+                onClick={() => setBranchMode((v) => !v)}
+                title="Clique numa linha para criar um ponto de derivação"
+              >
+                <GitBranch className="mr-1 h-4 w-4" />
+                Ponto de derivação
+              </Button>
+            </div>
           </div>
         </div>
+
         {/* Inspector */}
         <aside className="w-80 border-l border-border bg-sidebar">
           <Inspector
