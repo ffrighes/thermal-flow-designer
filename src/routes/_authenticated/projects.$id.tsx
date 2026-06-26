@@ -442,9 +442,10 @@ function EditorInner() {
                 setSelectedEdge(null);
               }}
               onEdgeClick={(evt, e) => {
-                if (evt.altKey) {
+                if (evt.altKey || branchMode) {
                   const pos = screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
                   splitEdgeAt(e.id, pos.x, pos.y);
+                  setBranchMode(false);
                   return;
                 }
                 setSelectedEdge(e);
@@ -453,13 +454,13 @@ function EditorInner() {
               onPaneClick={() => {
                 setSelectedNode(null);
                 setSelectedEdge(null);
+                if (branchMode) setBranchMode(false);
               }}
               fitView
               snapToGrid
               snapGrid={[16, 16]}
               deleteKeyCode={["Delete", "Backspace"]}
               onBeforeDelete={async ({ nodes: ns, edges: es }) => {
-                // Trate cada nó com nossa lógica (preserva linhas em equipamentos)
                 for (const n of ns) deleteNode(n.id);
                 for (const e of es) {
                   if (ns.some((n) => n.id === e.source || n.id === e.target)) continue;
@@ -467,13 +468,38 @@ function EditorInner() {
                 }
                 return false;
               }}
+              className={cn(branchMode && "cursor-crosshair")}
             >
               <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
               <Controls />
               <MiniMap pannable zoomable />
             </ReactFlow>
+
+            {/* Toolbar flutuante */}
+            <div className="pointer-events-none absolute left-3 top-3 z-10 flex gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                className="pointer-events-auto shadow-md"
+                onClick={addNewLine}
+              >
+                <Spline className="mr-1 h-4 w-4" />
+                Nova linha
+              </Button>
+              <Button
+                size="sm"
+                variant={branchMode ? "default" : "secondary"}
+                className="pointer-events-auto shadow-md"
+                onClick={() => setBranchMode((v) => !v)}
+                title="Clique numa linha para criar um ponto de derivação"
+              >
+                <GitBranch className="mr-1 h-4 w-4" />
+                Ponto de derivação
+              </Button>
+            </div>
           </div>
         </div>
+
         {/* Inspector */}
         <aside className="w-80 border-l border-border bg-sidebar">
           <Inspector
