@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadProject, saveProject } from "@/lib/projects.functions";
 import { EQUIPMENT, type EquipmentType } from "@/lib/thermal/equipment";
 import { EquipmentNode } from "@/components/flow/EquipmentNode";
+import { OrthoEdge } from "@/components/flow/OrthoEdge";
 import { JunctionNode } from "@/components/flow/JunctionNode";
 import { Palette } from "@/components/flow/Palette";
 import { Inspector } from "@/components/flow/Inspector";
@@ -37,6 +38,7 @@ export const Route = createFileRoute("/_authenticated/projects/$id")({
 });
 
 const nodeTypes = { equipment: EquipmentNode, junction: JunctionNode };
+const edgeTypes = { ortho: OrthoEdge };
 
 const SNAP = 16;
 const snap = (v: number) => Math.round(v / SNAP) * SNAP;
