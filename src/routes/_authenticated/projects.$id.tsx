@@ -98,7 +98,7 @@ function EditorInner() {
         target: b.id,
         sourceHandle: "s",
         targetHandle: "t",
-        type: "step",
+        type: "ortho",
         data: { material: "aco_carbono" },
       },
     ]);
@@ -132,7 +132,7 @@ function EditorInner() {
         id: e.id,
         source: e.source_node,
         target: e.target_node,
-        type: "step",
+        type: "ortho",
         data: { material: e.material, ...((e.parametros as object) ?? {}) },
         label: (e.parametros as Record<string, unknown>)?.tag as string | undefined,
       })),
@@ -197,7 +197,7 @@ function EditorInner() {
     (c: Connection) =>
       setEdges((eds) =>
         addEdge(
-          { ...c, id: crypto.randomUUID(), type: "step", data: { material: "aco_carbono" } },
+          { ...c, id: crypto.randomUUID(), type: "ortho", data: { material: "aco_carbono" } },
           eds,
         ),
       ),
