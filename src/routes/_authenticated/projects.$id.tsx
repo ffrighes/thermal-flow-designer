@@ -686,3 +686,56 @@ function EditorInner() {
     </div>
   );
 }
+
+function DrawingPreview({
+  drawing,
+  viewport,
+  orthoNext,
+}: {
+  drawing: {
+    points: { x: number; y: number }[];
+    cursor: { x: number; y: number } | null;
+    startNodeId: string | null;
+    anchor: { x: number; y: number } | null;
+  };
+  viewport: [number, number, number];
+  orthoNext: (a: { x: number; y: number }, b: { x: number; y: number }) => { x: number; y: number };
+}) {
+  const [tx, ty, zoom] = viewport;
+  const pts: { x: number; y: number }[] = [];
+  if (drawing.anchor) pts.push(drawing.anchor);
+  pts.push(...drawing.points);
+  if (drawing.cursor) {
+    const last = pts[pts.length - 1];
+    pts.push(last ? orthoNext(last, drawing.cursor) : drawing.cursor);
+  }
+  if (pts.length < 1) return null;
+  const d = pts
+    .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`)
+    .join(" ");
+  return (
+    <svg className="pointer-events-none absolute inset-0 z-[5] h-full w-full">
+      <g transform={`translate(${tx} ${ty}) scale(${zoom})`}>
+        {pts.length >= 2 ? (
+          <path
+            d={d}
+            fill="none"
+            stroke="hsl(var(--primary))"
+            strokeWidth={2 / zoom}
+            strokeDasharray={`${6 / zoom} ${4 / zoom}`}
+          />
+        ) : null}
+        {pts.map((p, i) => (
+          <circle
+            key={i}
+            cx={p.x}
+            cy={p.y}
+            r={4 / zoom}
+            fill={i === pts.length - 1 && drawing.cursor ? "hsl(var(--primary) / 0.4)" : "hsl(var(--primary))"}
+          />
+        ))}
+      </g>
+    </svg>
+  );
+}
+
