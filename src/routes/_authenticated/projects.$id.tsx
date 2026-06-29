@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadProject, saveProject } from "@/lib/projects.functions";
 import { EQUIPMENT, type EquipmentType } from "@/lib/thermal/equipment";
 import { EquipmentNode } from "@/components/flow/EquipmentNode";
+import { OrthoEdge } from "@/components/flow/OrthoEdge";
 import { JunctionNode } from "@/components/flow/JunctionNode";
 import { Palette } from "@/components/flow/Palette";
 import { Inspector } from "@/components/flow/Inspector";
@@ -37,6 +38,7 @@ export const Route = createFileRoute("/_authenticated/projects/$id")({
 });
 
 const nodeTypes = { equipment: EquipmentNode, junction: JunctionNode };
+const edgeTypes = { ortho: OrthoEdge };
 
 const SNAP = 16;
 const snap = (v: number) => Math.round(v / SNAP) * SNAP;
@@ -96,7 +98,7 @@ function EditorInner() {
         target: b.id,
         sourceHandle: "s",
         targetHandle: "t",
-        type: "step",
+        type: "ortho",
         data: { material: "aco_carbono" },
       },
     ]);
@@ -130,7 +132,7 @@ function EditorInner() {
         id: e.id,
         source: e.source_node,
         target: e.target_node,
-        type: "step",
+        type: "ortho",
         data: { material: e.material, ...((e.parametros as object) ?? {}) },
         label: (e.parametros as Record<string, unknown>)?.tag as string | undefined,
       })),
@@ -195,7 +197,7 @@ function EditorInner() {
     (c: Connection) =>
       setEdges((eds) =>
         addEdge(
-          { ...c, id: crypto.randomUUID(), type: "step", data: { material: "aco_carbono" } },
+          { ...c, id: crypto.randomUUID(), type: "ortho", data: { material: "aco_carbono" } },
           eds,
         ),
       ),
@@ -434,6 +436,7 @@ function EditorInner() {
               nodes={nodes}
               edges={edges}
               nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
