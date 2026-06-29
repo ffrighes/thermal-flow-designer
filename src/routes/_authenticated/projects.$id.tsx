@@ -547,6 +547,11 @@ function EditorInner() {
               e.dataTransfer.dropEffect = "move";
             }}
             onDrop={onDrop}
+            onMouseMove={(e) => {
+              if (!drawingRef.current) return;
+              const pos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+              setDrawing((cur) => (cur ? { ...cur, cursor: pos } : cur));
+            }}
           >
             <ReactFlow
               nodes={nodes}
@@ -557,10 +562,20 @@ function EditorInner() {
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               onNodeClick={(_, n) => {
+                if (drawing) {
+                  if (n.type !== "equipment" && n.type !== "junction") return;
+                  if (!drawing.startNodeId && drawing.points.length === 0) {
+                    setDrawing({ ...drawing, startNodeId: n.id, anchor: nodeAnchor(n) });
+                  } else {
+                    commitDrawing(n.id, nodeAnchor(n));
+                  }
+                  return;
+                }
                 setSelectedNode(n);
                 setSelectedEdge(null);
               }}
               onEdgeClick={(evt, e) => {
+                if (drawing) return;
                 if (evt.altKey || branchMode) {
                   const pos = screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
                   splitEdgeAt(e.id, pos.x, pos.y);
@@ -570,10 +585,28 @@ function EditorInner() {
                 setSelectedEdge(e);
                 setSelectedNode(null);
               }}
-              onPaneClick={() => {
+              onPaneClick={(evt) => {
+                if (drawing) {
+                  const pos = screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
+                  const ref = drawing.points[drawing.points.length - 1] ?? drawing.anchor;
+                  const next = ref ? orthoNext(ref, pos) : { x: snap(pos.x), y: snap(pos.y) };
+                  setDrawing({ ...drawing, points: [...drawing.points, next] });
+                  return;
+                }
                 setSelectedNode(null);
                 setSelectedEdge(null);
                 if (branchMode) setBranchMode(false);
+              }}
+              onDoubleClick={(evt) => {
+                if (!drawingRef.current) return;
+                evt.preventDefault();
+                const pos = screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
+                const cur = drawingRef.current;
+                const ref = cur.points[cur.points.length - 1] ?? cur.anchor;
+                const next = ref ? orthoNext(ref, pos) : { x: snap(pos.x), y: snap(pos.y) };
+                setDrawing({ ...cur, points: [...cur.points, next] });
+                // commit on next tick after points update
+                setTimeout(() => commitDrawing(null, null), 0);
               }}
               fitView
               snapToGrid
@@ -587,23 +620,33 @@ function EditorInner() {
                 }
                 return false;
               }}
-              className={cn(branchMode && "cursor-crosshair")}
+              className={cn((branchMode || drawing) && "cursor-crosshair")}
             >
               <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
               <Controls />
               <MiniMap pannable zoomable />
             </ReactFlow>
 
+            {/* Preview do desenho em andamento */}
+            {drawing ? (
+              <DrawingPreview drawing={drawing} viewport={viewport} orthoNext={orthoNext} />
+            ) : null}
+
             {/* Toolbar flutuante */}
             <div className="pointer-events-none absolute left-3 top-3 z-10 flex gap-2">
               <Button
                 size="sm"
-                variant="secondary"
+                variant={drawing ? "default" : "secondary"}
                 className="pointer-events-auto shadow-md"
-                onClick={addNewLine}
+                onClick={drawing ? cancelDrawing : startDrawing}
+                title={
+                  drawing
+                    ? "Esc cancela, Enter finaliza"
+                    : "Clique para iniciar, depois clique no canvas ou em um equipamento"
+                }
               >
                 <Spline className="mr-1 h-4 w-4" />
-                Nova linha
+                {drawing ? "Cancelar desenho" : "Nova linha"}
               </Button>
               <Button
                 size="sm"
@@ -618,6 +661,7 @@ function EditorInner() {
             </div>
           </div>
         </div>
+
 
         {/* Inspector */}
         <aside className="w-80 border-l border-border bg-sidebar">
