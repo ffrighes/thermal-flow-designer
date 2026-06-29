@@ -11,6 +11,7 @@ import {
   applyEdgeChanges,
   applyNodeChanges,
   useReactFlow,
+  useStore,
   type Connection,
   type Edge,
   type Node,
@@ -71,8 +72,21 @@ function EditorInner() {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
   const [branchMode, setBranchMode] = useState(false);
+  type Pt = { x: number; y: number };
+  type Drawing = {
+    points: Pt[];
+    cursor: Pt | null;
+    startNodeId: string | null;
+    anchor: Pt | null;
+  };
+  const [drawing, setDrawing] = useState<Drawing | null>(null);
+  const drawingRef = useRef<Drawing | null>(null);
+  useEffect(() => {
+    drawingRef.current = drawing;
+  }, [drawing]);
   const initialized = useRef(false);
   const { screenToFlowPosition } = useReactFlow();
+  const viewport = useStore((s) => s.transform);
 
   const makeJunction = useCallback((x: number, y: number): Node => ({
     id: crypto.randomUUID(),
@@ -81,28 +95,130 @@ function EditorInner() {
     data: { tipo: "junction", tag: "", parametros: {} },
   }), []);
 
-  const addNewLine = useCallback(() => {
-    // Cria duas junções no centro do viewport com uma aresta entre elas
-    const center = screenToFlowPosition({
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2,
-    });
-    const a = makeJunction(center.x - 80, center.y);
-    const b = makeJunction(center.x + 80, center.y);
-    setNodes((nds) => [...nds, a, b]);
-    setEdges((eds) => [
-      ...eds,
-      {
-        id: crypto.randomUUID(),
-        source: a.id,
-        target: b.id,
-        sourceHandle: "s",
-        targetHandle: "t",
-        type: "ortho",
-        data: { material: "aco_carbono" },
-      },
-    ]);
-  }, [makeJunction, screenToFlowPosition]);
+  const orthoNext = useCallback((prev: Pt, next: Pt): Pt => {
+    const dx = next.x - prev.x;
+    const dy = next.y - prev.y;
+    if (Math.abs(dx) >= Math.abs(dy)) return { x: snap(next.x), y: prev.y };
+    return { x: prev.x, y: snap(next.y) };
+  }, []);
+
+  const nodeAnchor = useCallback((n: Node): Pt => {
+    if (n.type === "equipment") {
+      return { x: n.position.x + 180, y: n.position.y + 30 };
+    }
+    return { x: n.position.x, y: n.position.y };
+  }, []);
+
+  const startDrawing = useCallback(() => {
+    setBranchMode(false);
+    setSelectedNode(null);
+    setSelectedEdge(null);
+    setDrawing({ points: [], cursor: null, startNodeId: null, anchor: null });
+  }, []);
+
+  const cancelDrawing = useCallback(() => setDrawing(null), []);
+
+  const commitDrawing = useCallback(
+    (endNodeId: string | null, endNodeAnchor: Pt | null) => {
+      const cur = drawingRef.current;
+      if (!cur) return;
+      // Determine last reference point for ortho projection
+      const ref = cur.points[cur.points.length - 1] ?? cur.anchor;
+      let pts = [...cur.points];
+
+      if (endNodeId && endNodeAnchor && ref) {
+        const finalPt = orthoNext(ref, endNodeAnchor);
+        if (!pts.length || pts[pts.length - 1].x !== finalPt.x || pts[pts.length - 1].y !== finalPt.y) {
+          pts.push(finalPt);
+        }
+      }
+
+      // Need at least one segment: source + target distinct
+      if (!cur.startNodeId && !endNodeId && pts.length < 2) {
+        setDrawing(null);
+        return;
+      }
+      if ((cur.startNodeId || endNodeId) && pts.length < 1) {
+        setDrawing(null);
+        return;
+      }
+
+      let sourceId = cur.startNodeId;
+      let targetId = endNodeId;
+      const newJunctions: Node[] = [];
+
+      if (!sourceId) {
+        const j = makeJunction(pts[0].x, pts[0].y);
+        newJunctions.push(j);
+        sourceId = j.id;
+        pts = pts.slice(1);
+      }
+      if (!targetId) {
+        const lastP = pts[pts.length - 1];
+        const j = makeJunction(lastP.x, lastP.y);
+        newJunctions.push(j);
+        targetId = j.id;
+        pts = pts.slice(0, -1);
+      }
+      if (sourceId === targetId) {
+        setDrawing(null);
+        return;
+      }
+
+      // Derive axes from first/last segment of full polyline (src-anchor → pts → tgt-anchor)
+      const srcNode = newJunctions.find((n) => n.id === sourceId)
+        ?? nodes.find((n) => n.id === sourceId);
+      const tgtNode = newJunctions.find((n) => n.id === targetId)
+        ?? nodes.find((n) => n.id === targetId);
+      const srcAnchor = srcNode ? nodeAnchor(srcNode) : { x: 0, y: 0 };
+      const tgtAnchor = tgtNode ? nodeAnchor(tgtNode) : { x: 0, y: 0 };
+      const firstWp = pts[0] ?? tgtAnchor;
+      const lastWp = pts[pts.length - 1] ?? srcAnchor;
+      const startAxis: "h" | "v" =
+        Math.abs(firstWp.x - srcAnchor.x) >= Math.abs(firstWp.y - srcAnchor.y) ? "h" : "v";
+      const endAxis: "h" | "v" =
+        Math.abs(tgtAnchor.x - lastWp.x) >= Math.abs(tgtAnchor.y - lastWp.y) ? "h" : "v";
+
+      setNodes((nds) => [...nds, ...newJunctions]);
+      setEdges((eds) => [
+        ...eds,
+        {
+          id: crypto.randomUUID(),
+          source: sourceId!,
+          target: targetId!,
+          sourceHandle: "s",
+          targetHandle: "t",
+          type: "ortho",
+          data: {
+            material: "aco_carbono",
+            waypoints: pts,
+            startAxis,
+            endAxis,
+          },
+        },
+      ]);
+      setDrawing(null);
+    },
+    [makeJunction, nodeAnchor, nodes, orthoNext],
+  );
+
+  // Keyboard: Esc cancels, Enter finalizes (with junction at last cursor/point)
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!drawingRef.current) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        cancelDrawing();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        commitDrawing(null, null);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [cancelDrawing, commitDrawing]);
+
+
 
 
   useEffect(() => {
