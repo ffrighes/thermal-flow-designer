@@ -1,33 +1,39 @@
-## Mudanças solicitadas
+# Criar tubulação como polilinha (estilo AutoCAD)
 
-### 1. Não deletar tubulações quando equipamento é removido
+Substituir o botão "Nova linha" (que hoje cria uma linha pronta no centro) por um modo de desenho interativo, onde o usuário define o trajeto vértice por vértice.
 
-Hoje, ao remover um nó (equipamento), todas as arestas (tubulações) conectadas a ele são removidas junto. O usuário quer preservar as linhas.
+## Fluxo de uso
 
-**Comportamento novo:** ao deletar um equipamento, as tubulações que estavam ligadas a ele permanecem no diagrama, com a extremidade que estava no equipamento agora "solta" — ancorada a um ponto livre na grade (na posição onde o equipamento estava). Essa extremidade vira um nó-junção (ver item 2) na mesma posição da porta antiga, para que a linha continue visível e editável.
+1. Usuário clica em **Nova linha** → entra em "modo desenho" (cursor em mira).
+2. Primeiro clique no canvas (ou sobre um equipamento/junção) define o **ponto inicial**.
+3. Cliques seguintes adicionam vértices intermediários. O segmento atual em construção segue o cursor em tempo real (prévia em linha tracejada) e é forçado a ser **ortogonal** ao último vértice — horizontal ou vertical, escolhido pelo eixo de maior deslocamento. Todos os pontos fazem snap à grade de 16 px.
+4. Clique sobre outro equipamento ou junção, ou **duplo-clique** no canvas, finaliza a polilinha.
+5. **Esc** cancela o desenho atual sem criar nada.
 
-### 2. Linhas conectáveis a outras linhas (via snap na grade)
+Resultado: uma única aresta `ortho` com a sequência de waypoints exatamente como o usuário desenhou. Se o início ou o fim não tocar um equipamento, é criada automaticamente uma junção naquele ponto para servir de âncora — coerente com o modelo atual onde arestas conectam nós.
 
-React Flow só conecta arestas entre `Node`s, não entre `Edge`s diretamente. Para permitir "ligar uma tubulação a outra tubulação" mantendo snap na grade, vamos introduzir um novo tipo de nó:
+## Detalhes técnicos
 
-- **Nó-junção** (`junction`): nó minúsculo (ponto/quadradinho 8x8) que existe apenas para servir de ponto de conexão. Snap na grade já existente (16px).
-- Quando o usuário quiser ramificar uma linha existente, ele clica sobre a tubulação no ponto desejado → criamos um nó-junção naquele ponto (com snap à grade) e dividimos a aresta original em duas arestas que passam pela junção. A partir daí ele pode arrastar uma nova tubulação saindo da junção até outro equipamento/junção.
-- Junções também são criadas automaticamente quando um equipamento conectado é deletado (item 1), preservando os endpoints das linhas.
-- Junções podem ser arrastadas (continuam com snap) e deletadas individualmente; ao deletar uma junção, suas arestas adjacentes são fundidas novamente (se houver exatamente 2) ou removidas (se a junção ficar isolada).
+- **`projects.$id.tsx`**
+  - Novo estado `drawing: { points: Pt[]; cursor: Pt | null; startNodeId: string | null } | null`.
+  - Botão "Nova linha" passa a alternar `drawing` em vez de chamar `addNewLine`. Quando ativo, cursor `crosshair` e overlay de prévia.
+  - Handlers no `ReactFlow`:
+    - `onPaneClick(evt)`: se `drawing`, adiciona vértice (snap) — usando `screenToFlowPosition`. Constrói ortogonalidade: se o último ponto existe, o novo vértice é projetado no eixo dominante (substituindo o eixo menor pelo do último ponto).
+    - `onNodeClick(_, node)`: se `drawing` e node é `equipment`/`junction`, fixa início (se ainda não há) ou finaliza a polilinha conectando ao node.
+    - `onPaneDoubleClick`: finaliza com junção criada no último ponto.
+    - `onPaneMouseMove` (via `onMouseMove` no wrapper): atualiza `drawing.cursor` para prévia ao vivo.
+  - Listener global `keydown` para `Escape` (cancela) e `Enter` (finaliza).
+  - Ao finalizar:
+    - Cria junções nos endpoints "soltos" (não-nó), reaproveita o ID do nó nos endpoints conectados.
+    - Insere uma única aresta `type: "ortho"` com `data.waypoints` = vértices intermediários (sem src/tgt), `startAxis`/`endAxis` derivados dos dois primeiros e dois últimos pontos.
 
-### Mudanças técnicas
+- **Prévia visual** — durante o desenho, renderizar um SVG overlay absoluto sobre o canvas (mesma transform do viewport React Flow via `useStore` para obter `{x, y, zoom}` da transformação), com `polyline` tracejada conectando `[...drawing.points, drawing.cursor]` em formato ortogonal.
 
-- `src/lib/thermal/equipment.ts`: nenhum efeito (junção não é "equipamento").
-- Novo `src/components/flow/JunctionNode.tsx`: nó visual mínimo, com handles "source" e "target" sobrepostos no centro, para aceitar conexões em qualquer direção.
-- `src/routes/_authenticated/projects.$id.tsx`:
-  - Registrar `junction` em `nodeTypes`.
-  - Alterar `deleteNode`: em vez de filtrar arestas, criar uma junção na posição do nó removido (centro aproximado) e reapontar as arestas afetadas para essa junção.
-  - Adicionar `onEdgeClick` com modificador (ex.: `Alt+clique` ou um botão "Ramificar" no Inspector da tubulação) que cria junção no ponto clicado (com snap a 16px) e quebra a aresta em duas.
-  - Garantir `snapToGrid` continua aplicado também ao arrasto da junção.
-  - Persistência: ajustar `saveProject`/`loadProject` para aceitar nós do tipo `junction` (mesmo formato de nó, novo `tipo` lógico, sem `tag`/`parametros` significativos). Confirmar se o schema atual aceita string livre em `tipo`; caso contrário, plano de migração mínima é apenas armazenar `tipo: 'junction'` como string.
-- `src/components/flow/Inspector.tsx`: quando o nó selecionado for uma junção, mostrar um painel reduzido ("Junção" + botão "Remover"). Quando uma tubulação for selecionada, adicionar botão "Ramificar aqui" que insere uma junção no centro da linha (fallback simples) — o fluxo principal de criação por clique no ponto exato vai pelo handler do canvas.
+- **Helpers reutilizados** — `snap`, `makeJunction`, lógica de inserção de aresta. `splitEdgeAt` permanece útil para Alt+clique.
 
-### Pontos a confirmar antes de implementar
+- **Inspector** — atualizar dica do estado vazio: "Clique em **Nova linha** e depois clique no canvas para definir o ponto inicial, cliques seguintes adicionam vértices, duplo-clique ou Enter finaliza, Esc cancela."
 
-- Para criar a junção sobre uma linha existente, a interação preferida é: **(a)** Alt+clique direto sobre a tubulação no canvas, **(b)** botão "Ramificar aqui" no Inspector da tubulação selecionada, ou **(c)** ambos? (Plano atual: ambos.)
-- Aceita o comportamento de manter linhas "soltas" como junções após deletar equipamento? (Plano atual: sim.)
+## Pontos a confirmar
+
+- Ortogonalidade forçada por eixo dominante do movimento do cursor está OK, ou prefere alternar H/V automaticamente (estilo AutoCAD ORTHO ON)?
+- Endpoint solto deve sempre virar junção, ou prefere ignorar o clique se não acertar um equipamento/junção?
