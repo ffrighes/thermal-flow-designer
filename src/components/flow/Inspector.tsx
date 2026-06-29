@@ -34,11 +34,13 @@ export function Inspector({
           remover itens selecionados.
         </p>
         <p className="mt-2 text-xs">
-          Use <strong>Nova linha</strong> para criar uma tubulação independente, ou{" "}
-          <strong>Ponto de derivação</strong> (ou{" "}
+          Clique em <strong>Nova linha</strong> e depois clique no canvas (ou num equipamento)
+          para definir o ponto inicial. Cliques seguintes adicionam vértices ortogonais;
+          duplo-clique ou <kbd className="rounded border border-border bg-muted px-1">Enter</kbd>{" "}
+          finaliza, <kbd className="rounded border border-border bg-muted px-1">Esc</kbd> cancela.
+          Use <strong>Ponto de derivação</strong> (ou{" "}
           <kbd className="rounded border border-border bg-muted px-1">Alt</kbd>+clique) para
-          ramificar uma linha existente. Arraste as junções para reposicionar trechos — elas
-          fazem snap à grade.
+          ramificar uma linha existente.
         </p>
 
       </div>
